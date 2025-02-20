@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Constellation Map</title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            margin: 0;
+            display: flex;
+        }
+        .sidebar {
+            width: 200px;
+            padding: 20px;
+            background: rgba(20, 20, 20, 0.8);
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .constellation-name {
+            cursor: pointer;
+            margin-bottom: 10px;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .constellation-name.highlighted {
+            color: yellow;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .view-more {
+            color: cyan;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .sky {
+            position: relative;
+            width: calc(100vw - 200px);
+            height: 100vh;
+            overflow: hidden;
+            transform-origin: center;
+            animation: rotate 120s linear infinite;
+        }
+        .star {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background-color: white;
+            border-radius: 50%;
+            animation: twinkle 1.5s infinite alternate;
+            cursor: pointer;
+        }
+        .star.highlighted {
+            background-color: yellow;
+            box-shadow: 0 0 10px rgba(255, 255, 0, 0.8);
+        }
+        @keyframes twinkle {
+            0% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .info-box {
+            position: fixed;
+            bottom: 20px;
+            left: 55%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 400px;
+            color: white;
+            display: none;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 55%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            width: 80%;
+            max-width: 600px;
+            color: white;
+            animation: fadeIn 0.5s;
+        }
+        .modal-content {
+            position: relative;
+        }
+        .close-modal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            font-size: 20px;
+            color: cyan;
+        }
+        .modal-sky {
+            position: relative;
+            width: 100%;
+            height: 400px; /* Increased height for better visibility */
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            overflow: hidden; /* Ensure stars don't overflow the container */
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .star-info {
+            position: absolute;
+            color: white;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 25px;
+            border-radius: 5px;
+            display: none;
+            white-space: nowrap; /* Prevent text from wrapping */
+            z-index: 10; /* Ensure info box appears above stars */
+        }
+        .star:hover .star-info {
+            display: block;
+        }
+        #quiz-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            width: 80%;
+            max-width: 500px;
+            z-index: 1000;
+        }
+        #quiz-questions {
+            margin-top: 20px;
+        }
+        #quiz-button {
+            position: sticky;
+            bottom: 20px; /* Stick to the bottom with some spacing */
+            margin-top: auto; /* Push the button to the bottom */
+            padding: 10px;
+            background: cyan;
+            color: black;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .quiz-question {
+            margin-bottom: 20px;
+        }
+        .quiz-question h3 {
+            margin-bottom: 10px;
+        }
+        .quiz-option {
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .quiz-option.correct {
+            background: green !important;
+        }
+        .quiz-option.incorrect {
+            background: red !important;
+        }
+        .quiz-option.disabled {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        #next-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: cyan;
+            color: black;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #next-button:hover {
+            background: #00b3b3;
+        }
+        /* Highlight Duration */
+        .quiz-option.correct,
+        .quiz-option.incorrect {
+            transition: background 0.3s;
+            animation: highlight 4s forwards; /* Increased highlight time to 3 seconds */
+        }
+        @keyframes highlight {
+            0% { opacity: 1; }
+            100% { opacity: 1; }
+        }
+        .background-star {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.314); /* Very faint white */
+            border-radius: 50%;
+            animation: twinkle 3s infinite alternate;
+        }
+        @keyframes twinkle {
+            0% { opacity: 0.2; }
+            100% { opacity: 0.8; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <button id="quiz-button">Take a Quiz!</button>
+    </div>
+    <div class="sky" id="sky"></div>
+    <div class="info-box" id="info-box"></div>
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal">&times;</span>
+            <h2 id="modal-title"></h2>
+            <div class="modal-sky" id="modal-sky"></div>
+            <p id="modal-story"></p>
+        </div>
+    </div>
+    <div class="modal" id="quiz-modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-quiz-modal">&times;</span>
+            <h2>Constellation Quiz</h2>
+            <div id="quiz-questions"></div>
+            <button id="next-button" style="display: none;">Next Question</button>
+        </div>
+    </div>
+    
+    <script>
+        // Real star data (RA and Dec in degrees)
+        const constellations = [
+            {
+                name: "Orion",
+                stars: [
+                    { ra: 88.793, dec: 7.407, name: "Betelgeuse", significance: "Red supergiant star, one of the largest known stars." },
+                    { ra: 78.634, dec: -8.202, name: "Bellatrix", significance: "Blue giant star, one of the brightest stars in Orion." },
+                    { ra: 83.001, dec: -0.299, name: "Rigel", significance: "Blue supergiant star, the brightest star in Orion." },
+                    { ra: 81.283, dec: 6.349, name: "Mintaka", significance: "Multiple star system, part of Orion's Belt." },
+                    { ra: 85.190, dec: -1.943, name: "Alnilam", significance: "Central star of Orion's Belt, a blue supergiant." },
+                    { ra: 86.939, dec: -9.669, name: "Saiph", significance: "Blue supergiant star, marking Orion's right foot." }
+                ],
+                story: "Orion the hunter is one of the most recognizable constellations in the night sky.",
+                image: "orion.jpg"
+            },
+            {
+                name: "Ursa Major",
+                stars: [
+                    { ra: 165.932, dec: 56.382, name: "Dubhe", significance: "Brightest star in Ursa Major, part of the Big Dipper." },
+                    { ra: 165.460, dec: 56.871, name: "Merak", significance: "Part of the Big Dipper, used to locate Polaris." },
+                    { ra: 178.457, dec: 53.694, name: "Phecda", significance: "Part of the Big Dipper, a main-sequence star." },
+                    { ra: 183.857, dec: 57.033, name: "Megrez", significance: "The faintest star in the Big Dipper." },
+                    { ra: 188.597, dec: 62.595, name: "Alioth", significance: "Brightest star in Ursa Major, part of the Big Dipper." },
+                    { ra: 206.885, dec: 49.313, name: "Mizar", significance: "Famous double star, part of the Big Dipper." },
+                    { ra: 213.915, dec: 37.146, name: "Alkaid", significance: "End star of the Big Dipper's handle." }
+                ],
+                story: "Ursa Major, also known as the Great Bear, contains the Big Dipper asterism.",
+                image: "ursa_major.jpg"
+            },
+            {
+                name: "Cassiopeia",
+                stars: [
+                    { ra: 14.177, dec: 60.717, name: "Schedar", significance: "Brightest star in Cassiopeia, an orange giant." },
+                    { ra: 13.792, dec: 60.235, name: "Caph", significance: "Yellow-white giant star, part of the 'W' shape." },
+                    { ra: 15.511, dec: 56.537, name: "Gamma Cassiopeiae", significance: "A variable star with a disk of ejected material." },
+                    { ra: 2.530, dec: 60.716, name: "Ruchbah", significance: "Delta Cassiopeiae, a binary star system." },
+                    { ra: 358.680, dec: 63.670, name: "Segin", significance: "Epsilon Cassiopeiae, a blue-white giant star." }
+                ],
+                story: "Cassiopeia was a vain queen in Greek mythology, punished to circle the sky forever.",
+                image: "cassiopeia.jpg"
+            },
+            {
+                name: "Leo",
+                stars: [
+                    { ra: 152.093, dec: 11.967, name: "Regulus", significance: "Brightest star in Leo, part of the 'Sickle' asterism." },
+                    { ra: 154.993, dec: 23.417, name: "Denebola", significance: "Second brightest star in Leo, marks the lion's tail." },
+                    { ra: 168.527, dec: 20.524, name: "Algieba", significance: "Double star system, part of the lion's mane." },
+                    { ra: 146.462, dec: 26.006, name: "Zosma", significance: "White main-sequence star in Leo." },
+                    { ra: 139.273, dec: 22.968, name: "Chertan", significance: "Theta Leonis, a white giant star." }
+                ],
+                story: "Leo is one of the constellations of the zodiac, representing the lion.",
+                image: "leo.jpg"
+            },
+            {
+                name: "Scorpius",
+                stars: [
+                    { ra: 247.352, dec: -26.432, name: "Antares", significance: "Red supergiant star, the heart of the scorpion." },
+                    { ra: 244.580, dec: -34.293, name: "Shaula", significance: "Bright star marking the scorpion's stinger." },
+                    { ra: 242.998, dec: -38.047, name: "Lesath", significance: "Blue subgiant star, part of the scorpion's stinger." },
+                    { ra: 239.221, dec: -29.214, name: "Dschubba", significance: "Multiple star system in the scorpion's head." },
+                    { ra: 241.359, dec: -19.805, name: "Acrab", significance: "Beta Scorpii, a multiple star system." }
+                ],
+                story: "Scorpius is one of the constellations of the zodiac, representing the scorpion.",
+                image: "scorpius.jpg"
+            },
+            {
+                name: "Lyra",
+                stars: [
+                    { ra: 279.235, dec: 38.784, name: "Vega", significance: "Brightest star in Lyra, part of the Summer Triangle." },
+                    { ra: 278.802, dec: 37.605, name: "Sheliak", significance: "Eclipsing binary star system in Lyra." },
+                    { ra: 277.847, dec: 36.898, name: "Sulafat", significance: "Blue giant star in Lyra." },
+                    { ra: 281.414, dec: 38.784, name: "Delta Lyrae", significance: "Double star system in Lyra." }
+                ],
+                story: "Lyra is a small constellation, representing the lyre of Orpheus.",
+                image: "lyra.jpg"
+            },
+            {
+                name: "Taurus",
+                stars: [
+                    { ra: 68.980, dec: 16.509, name: "Aldebaran", significance: "Red giant star, the eye of the bull." },
+                    { ra: 81.572, dec: 28.608, name: "Elnath", significance: "Bright star marking the bull's horn." },
+                    { ra: 66.009, dec: 9.029, name: "Alcyone", significance: "Brightest star in the Pleiades cluster." },
+                    { ra: 59.464, dec: 24.105, name: "Electra", significance: "One of the brightest stars in the Pleiades." },
+                    { ra: 56.871, dec: 24.105, name: "Taygeta", significance: "Another bright star in the Pleiades cluster." }
+                ],
+                story: "Taurus is one of the constellations of the zodiac, representing the bull.",
+                image: "taurus.jpg"
+            },
+            {
+                name: "Gemini",
+                stars: [
+                    { ra: 113.650, dec: 31.888, name: "Castor", significance: "Multiple star system, one of the twins." },
+                    { ra: 116.329, dec: 28.026, name: "Pollux", significance: "Brightest star in Gemini, one of the twins." },
+                    { ra: 110.030, dec: 32.507, name: "Alhena", significance: "Blue-white giant star in Gemini." },
+                    { ra: 106.027, dec: 30.245, name: "Wasat", significance: "Binary star system in Gemini." },
+                    { ra: 101.322, dec: 28.026, name: "Mebsuta", significance: "Epsilon Geminorum, a supergiant star." }
+                ],
+                story: "Gemini is one of the constellations of the zodiac, representing the twins.",
+                image: "gemini.jpg"
+            },
+            {
+                name: "Cygnus",
+                stars: [
+                    { ra: 310.358, dec: 45.280, name: "Deneb", significance: "Brightest star in Cygnus, part of the Summer Triangle." },
+                    { ra: 299.074, dec: 40.257, name: "Albireo", significance: "Famous double star, the 'beak' of the swan." },
+                    { ra: 292.680, dec: 51.730, name: "Sadr", significance: "Supergiant star in the center of Cygnus." },
+                    { ra: 305.557, dec: 49.878, name: "Gienah", significance: "Blue giant star in Cygnus." },
+                    { ra: 312.282, dec: 45.590, name: "Rukh", significance: "Delta Cygni, a binary star system." }
+                ],
+                story: "Cygnus is a northern constellation, representing the swan.",
+                image: "cygnus.jpg"
+            },
+            {
+                name: "Aquila",
+                stars: [
+                    { ra: 297.695, dec: 8.868, name: "Altair", significance: "Brightest star in Aquila, part of the Summer Triangle." },
+                    { ra: 298.828, dec: 10.613, name: "Alshain", significance: "Beta Aquilae, a yellow subgiant star." },
+                    { ra: 293.089, dec: 13.864, name: "Tarazed", significance: "Gamma Aquilae, an orange giant star." },
+                    { ra: 303.867, dec: 6.407, name: "Deneb el Okab", significance: "Epsilon Aquilae, a triple star system." }
+                ],
+                story: "Aquila represents the eagle that carried Zeus's thunderbolts in Greek mythology.",
+                image: "aquila.jpg"
+            },
+            {
+                name: "Pegasus",
+                stars: [
+                    { ra: 345.943, dec: 15.205, name: "Markab", significance: "Alpha Pegasi, a blue-white giant star." },
+                    { ra: 340.365, dec: 6.198, name: "Scheat", significance: "Beta Pegasi, a red giant star." },
+                    { ra: 326.046, dec: 9.875, name: "Algenib", significance: "Gamma Pegasi, a blue subgiant star." },
+                    { ra: 343.987, dec: 2.763, name: "Enif", significance: "Epsilon Pegasi, the brightest star in Pegasus." }
+                ],
+                story: "Pegasus is a large constellation representing the winged horse from Greek mythology.",
+                image: "pegasus.jpg"
+            }
+        ];
+        const quizData = [
+            {
+                question: "Which constellation contains the star Betelgeuse?",
+                options: ["Orion", "Ursa Major", "Cassiopeia", "Leo"],
+                answer: "Orion"
+            },
+            {
+                question: "What is the brightest star in the night sky?",
+                options: ["Vega", "Sirius", "Polaris", "Betelgeuse"],
+                answer: "Sirius"
+            },
+            {
+                question: "Which constellation is known as the 'Great Bear'?",
+                options: ["Orion", "Ursa Major", "Scorpius", "Lyra"],
+                answer: "Ursa Major"
+            },
+            {
+                question: "Which star is part of Orion's Belt?",
+                options: ["Betelgeuse", "Rigel", "Alnilam", "Bellatrix"],
+                answer: "Alnilam"
+            },
+            {
+                question: "Which constellation represents the lion?",
+                options: ["Leo", "Taurus", "Gemini", "Cygnus"],
+                answer: "Leo"
+            }
+        ];
+
+        const sky = document.getElementById("sky");
+        const sidebar = document.getElementById("sidebar");
+        const infoBox = document.getElementById("info-box");
+        const modal = document.getElementById("modal");
+        const modalTitle = document.getElementById("modal-title");
+        const modalSky = document.getElementById("modal-sky");
+        const modalStory = document.getElementById("modal-story");
+        const closeModal = document.getElementById("close-modal");
+        const quizButton = document.getElementById("quiz-button");
+        const quizModal = document.getElementById("quiz-modal");
+        const closeQuizModal = document.getElementById("close-quiz-modal");
+        const quizQuestionsContainer = document.getElementById("quiz-questions");
+        const nextButton = document.getElementById("next-button");
+        let currentQuestionIndex = 0;
+
+        // Open Quiz Modal
+        quizButton.addEventListener("click", () => {
+            quizModal.style.display = "block";
+            currentQuestionIndex = 0; // Reset to the first question
+            loadQuestion(currentQuestionIndex);
+        });
+
+        // Close Quiz Modal
+        closeQuizModal.addEventListener("click", () => {
+            quizModal.style.display = "none";
+        });
+
+        // Load a Single Question
+        function loadQuestion(index) {
+            quizQuestionsContainer.innerHTML = ""; // Clear previous question
+            const question = quizData[index];
+            const questionElement = document.createElement("div");
+            questionElement.className = "quiz-question";
+            questionElement.innerHTML = `
+                <h3>${index + 1}. ${question.question}</h3>
+                ${question.options.map(option => `
+                    <div class="quiz-option" data-question="${index}" data-option="${option}">${option}</div>
+                `).join("")}
+            `;
+            quizQuestionsContainer.appendChild(questionElement);
+
+            // Add event listeners to options
+            const options = document.querySelectorAll(".quiz-option");
+            options.forEach(option => {
+                option.addEventListener("click", handleOptionClick);
+            });
+
+            // Hide "Next" button initially
+            nextButton.style.display = "none";
+        }
+
+        // Handle Option Selection
+        function handleOptionClick(e) {
+            const selectedOption = e.target;
+            const questionIndex = selectedOption.getAttribute("data-question");
+            const selectedAnswer = selectedOption.getAttribute("data-option");
+            const correctAnswer = quizData[questionIndex].answer;
+
+            // Disable all options for this question
+            const options = document.querySelectorAll(`.quiz-option[data-question="${questionIndex}"]`);
+            options.forEach(option => option.classList.add("disabled"));
+
+            // Highlight correct or incorrect
+            if (selectedAnswer === correctAnswer) {
+                selectedOption.classList.add("correct");
+            } else {
+                selectedOption.classList.add("incorrect");
+                // Highlight correct answer
+                options.forEach(option => {
+                    if (option.getAttribute("data-option") === correctAnswer) {
+                        option.classList.add("correct");
+                    }
+                });
+            }
+
+            // Show "Next" button after 3 seconds
+            setTimeout(() => {
+                nextButton.style.display = "block";
+            }, 0); // Increased highlight time to 3 seconds
+        }
+
+        // Handle "Next" Button Click
+        nextButton.addEventListener("click", () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < quizData.length) {
+                loadQuestion(currentQuestionIndex);
+            } else {
+                // End of quiz
+                quizQuestionsContainer.innerHTML = "<h3>Quiz Completed! Well done!</h3>";
+                nextButton.style.display = "none";
+            }
+        });
+
+        // Convert RA and Dec to x, y coordinates for rendering
+        function convertToXY(ra, dec, width, height) {
+            const x = (ra/ 360) * width;
+            const y = ((dec + 90) / 180) * height;
+            return [x, y];
+        }
+
+        // Calculate the center of a constellation
+        function calculateCenter(stars) {
+            const totalStars = stars.length;
+            const centerRA = stars.reduce((sum, star) => sum + star.ra, 0) / totalStars;
+            const centerDec = stars.reduce((sum, star) => sum + star.dec, 0) / totalStars;
+            return [centerRA, centerDec];
+        }
+
+        // Create stars and add them to the sky
+        constellations.forEach((constellation, index) => {
+            const nameItem = document.createElement("div");
+            nameItem.className = "constellation-name";
+            nameItem.innerHTML = `${constellation.name} <span class='view-more'>View More</span>`;
+            sidebar.appendChild(nameItem);
+
+            // Add click event to highlight stars and show info box
+            nameItem.addEventListener("click", () => {
+                // Remove highlights from all stars
+                document.querySelectorAll(".star").forEach(star => star.classList.remove("highlighted"));
+
+                // Highlight stars for the selected constellation
+                constellation.stars.forEach(star => {
+                    const [x, y] = convertToXY(star.ra, star.dec, window.innerWidth, window.innerHeight);
+                    const starElement = document.querySelector(`.star[data-id="${star.ra}-${star.dec}"]`);
+                    if (starElement) {
+                        starElement.classList.add("highlighted");
+                    }
+                });
+
+                // Show info box with constellation name and story
+                infoBox.innerHTML = `<strong>${constellation.name}</strong><p>${constellation.story}</p>`;
+                infoBox.style.display = "block";
+
+                // Hide info box after 5 seconds
+                setTimeout(() => {
+                    infoBox.style.display = "none";
+                }, 5000);
+            });
+
+            // Add "View More" click event to show modal
+            const viewMoreButton = nameItem.querySelector(".view-more");
+            viewMoreButton.addEventListener("click", (e) => {
+                e.stopPropagation(); // Prevent the parent click event from firing
+                modalTitle.textContent = constellation.name;
+                modalStory.textContent = constellation.story;
+
+                // Clear previous stars in the modal
+                modalSky.innerHTML = "";
+
+                // Calculate the center of the constellation
+                const [centerRA, centerDec] = calculateCenter(constellation.stars);
+
+                // Get the dimensions of the modal-sky container
+                const modalSkyWidth = modalSky.offsetWidth;
+                const modalSkyHeight = modalSky.offsetHeight;
+
+                // Calculate the maximum distance of any star from the center
+                let maxDistance = 0;
+                constellation.stars.forEach(star => {
+                    const distance = Math.sqrt((star.ra - centerRA) ** 2 + (star.dec - centerDec) ** 2);
+                    if (distance > maxDistance) maxDistance = distance;
+                });
+
+                // Calculate the scaling factor to fit the constellation in the modal-sky container
+                const scale = Math.min(modalSkyWidth, modalSkyHeight) / (2 * maxDistance);
+
+                // Add stars to the modal sky with scaling and centering
+                constellation.stars.forEach(star => {
+                    // Calculate relative positions from the center
+                    const relativeRA = (star.ra - centerRA) * scale;
+                    const relativeDec = (star.dec - centerDec) * scale;
+
+                    // Convert to x, y coordinates
+                    const x = modalSkyWidth / 2 + relativeRA;
+                    const y = modalSkyHeight / 2 - relativeDec; // Flip y-axis to match sky coordinates
+
+                    // Create and position the star
+                    const starElement = document.createElement("div");
+                    starElement.className = "star";
+                    starElement.style.left = x + "px";
+                    starElement.style.top = y + "px";
+                    starElement.setAttribute("data-id", `${star.ra}-${star.dec}`);
+
+                    // Add star info (name and significance)
+                    const starInfo = document.createElement("div");
+                    starInfo.className = "star-info";
+                    starInfo.innerHTML = `<strong>${star.name}</strong><br>${star.significance}`;
+                    starElement.appendChild(starInfo);
+
+                    modalSky.appendChild(starElement);
+                });
+
+                // Show modal
+                modal.style.display = "block";
+            });
+
+            // Add stars to the sky
+            constellation.stars.forEach(star => {
+                const [x, y] = convertToXY(star.ra, star.dec, window.innerWidth, window.innerHeight);
+                const starElement = document.createElement("div");
+                starElement.className = "star";
+                starElement.style.left = x + "px";
+                starElement.style.top = y + "px";
+                starElement.setAttribute("data-id", `${star.ra}-${star.dec}`);
+                sky.appendChild(starElement);
+            });
+        });
+
+        // Close modal when clicking the close button
+        closeModal.addEventListener("click", () => {
+            modal.style.display = "none";
+        });
+
+        // Close modal when clicking outside of it
+        window.addEventListener("click", (e) => {
+            if (e.target === modal) {
+                modal.style.display = "none";
+            }
+        });
+        function generateBackgroundStars() {
+            const sky = document.getElementById("sky");
+            const numStars = 200; // Number of background stars
+
+            for (let i = 0; i < numStars; i++) {
+                const star = document.createElement("div");
+                star.className = "background-star";
+                const x = Math.random() * window.innerWidth;
+                const y = Math.random() * window.innerHeight;
+                star.style.left = `${x}px`;
+                star.style.top = `${y}px`;
+                sky.appendChild(star);
+            }
+        }
+
+        // Call the function to generate background stars when the page loads
+        generateBackgroundStars();
+    </script>
+</body>
+</html>
